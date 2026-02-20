@@ -7,6 +7,9 @@ import { logger } from './utils/logger';
 import { testConnection } from './database/connection';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
+import authRoutes from './routes/authRoutes';
+import eventRoutes from './routes/eventRoutes';
+import tagRoutes from './routes/tagRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -39,6 +42,10 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/tags', tagRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);
