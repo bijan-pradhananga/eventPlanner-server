@@ -2,17 +2,23 @@ import { db } from '../database/connection';
 import { Event, CreateEventRequest, UpdateEventRequest, EventsQueryParams, ApiResponse } from '../types';
 import { logger } from '../utils/logger';
 
+/** Convert a Date or ISO string to MySQL DATETIME format (YYYY-MM-DD HH:MM:SS) */
+function toMySQLDatetime(value: Date | string | undefined): string | undefined {
+  if (!value) return undefined;
+  return new Date(value).toISOString().slice(0, 19).replace('T', ' ');
+}
+
 export class EventService {
   static async createEvent(userId: number, eventData: CreateEventRequest): Promise<Event> {
     const trx = await db.transaction();
-    
+
     try {
       // Create event
       const [eventId] = await trx('events').insert({
         title: eventData.title,
         description: eventData.description,
-        event_date: eventData.event_date,
-        event_end_date: eventData.event_end_date,
+        event_date: toMySQLDatetime(eventData.event_date),
+        event_end_date: toMySQLDatetime(eventData.event_end_date),
         location: eventData.location,
         event_type: eventData.event_type,
         user_id: userId
@@ -24,14 +30,14 @@ export class EventService {
           event_id: eventId,
           tag_id: tagId
         }));
-        
+
         await trx('event_tags').insert(eventTagData);
       }
 
       await trx.commit();
 
       // Fetch the created event with tags
-      const event = await this.getEventById(eventId);
+      const event = await this.getEventById(eventId, userId);
       if (!event) {
         throw new Error('Failed to create event');
       }
@@ -45,7 +51,12 @@ export class EventService {
     }
   }
 
-  static async getEvents(queryParams: EventsQueryParams, userId?: number): Promise<ApiResponse<Event[]>> {
+  static async getEvents(
+    queryParams: EventsQueryParams,
+    userId?: number,
+    creatorUserId?: number
+  ): Promise<ApiResponse<Event[]>> {
+
     const {
       page = 1,
       limit = 10,
@@ -61,46 +72,41 @@ export class EventService {
     const offset = (page - 1) * limit;
     const now = new Date();
 
-    // Build query
-    let query = db('events')
+    // BASE QUERY (no select, no group)
+    const baseQuery = db('events')
       .leftJoin('event_tags', 'events.id', 'event_tags.event_id')
       .leftJoin('tags', 'event_tags.tag_id', 'tags.id')
-      .leftJoin('users', 'events.user_id', 'users.id')
-      .select(
-        'events.*',
-        'users.first_name as creator_first_name',
-        'users.last_name as creator_last_name',
-        db.raw('GROUP_CONCAT(DISTINCT tags.id) as tag_ids'),
-        db.raw('GROUP_CONCAT(DISTINCT tags.name) as tag_names'),
-        db.raw('GROUP_CONCAT(DISTINCT tags.color) as tag_colors')
-      )
-      .groupBy('events.id');
+      .leftJoin('users', 'events.user_id', 'users.id');
 
-    // Apply filters
-    if (event_type) {
-      query = query.where('events.event_type', event_type);
+    // FILTERS
+
+    if (creatorUserId) {
+      baseQuery.where('events.user_id', creatorUserId);
     }
 
-    // For public events, show all. For private events, only show if user owns them
+    if (event_type) {
+      baseQuery.where('events.event_type', event_type);
+    }
+
     if (userId) {
-      query = query.where(function() {
+      baseQuery.where(function () {
         this.where('events.event_type', 'public')
           .orWhere('events.user_id', userId);
       });
     } else {
-      query = query.where('events.event_type', 'public');
+      baseQuery.where('events.event_type', 'public');
     }
 
-    if (upcoming) {
-      query = query.where('events.event_date', '>=', now);
+    if (upcoming && !past) {
+      baseQuery.where('events.event_date', '>=', now);
     }
 
-    if (past) {
-      query = query.where('events.event_date', '<', now);
+    if (past && !upcoming) {
+      baseQuery.where('events.event_date', '<', now);
     }
 
     if (search) {
-      query = query.where(function() {
+      baseQuery.where(function () {
         this.where('events.title', 'like', `%${search}%`)
           .orWhere('events.description', 'like', `%${search}%`)
           .orWhere('events.location', 'like', `%${search}%`);
@@ -109,42 +115,57 @@ export class EventService {
 
     if (tag_ids) {
       const tagIdArray = tag_ids.split(',').map(id => parseInt(id.trim()));
-      query = query.whereIn('event_tags.tag_id', tagIdArray);
+      baseQuery.whereIn('event_tags.tag_id', tagIdArray);
     }
 
-    // Get total count for pagination
-    const countQuery = query.clone().clearSelect().clearOrder().count('DISTINCT events.id as total');
-    const countResult = await countQuery.first();
-    const total = parseInt(countResult?.total as string || '0');
+    // COUNT QUERY
+    const countResult = await baseQuery
+      .clone()
+      .clearSelect()
+      .countDistinct('events.id as total')
+      .first();
 
-    // Apply sorting and pagination
+    const total = Number(countResult?.total || 0);
+
+    // DATA QUERY
     const validSortColumns = ['event_date', 'created_at', 'title'];
-    const sortColumn = validSortColumns.includes(sort_by) ? sort_by : 'event_date';
+    const sortColumn = validSortColumns.includes(sort_by)
+      ? sort_by
+      : 'event_date';
+
     const sortDirection = sort_order === 'desc' ? 'desc' : 'asc';
 
-    query = query.orderBy(`events.${sortColumn}`, sortDirection);
+    const events = await baseQuery
+      .clone()
+      .select(
+        'events.*',
+        'users.first_name as creator_first_name',
+        'users.last_name as creator_last_name',
+        db.raw('GROUP_CONCAT(DISTINCT tags.id) as tag_ids'),
+        db.raw('GROUP_CONCAT(DISTINCT tags.name) as tag_names'),
+        db.raw('GROUP_CONCAT(DISTINCT tags.color) as tag_colors')
+      )
+      .groupBy('events.id')
+      .orderBy(`events.${sortColumn}`, sortDirection)
+      .limit(limit)
+      .offset(offset);
 
-    if (sortColumn !== 'event_date') {
-      query = query.orderBy('events.event_date', 'asc'); // Secondary sort by event_date
-    }
-
-    const events = await query.limit(limit).offset(offset);
-
-    // Transform the results to include tags as arrays
+    // TRANSFORM
     const transformedEvents = events.map(event => ({
       ...event,
-      tags: event.tag_ids ? {
-        ids: event.tag_ids.split(',').map((id: string) => parseInt(id)),
-        names: event.tag_names.split(','),
-        colors: event.tag_colors.split(',')
-      } : { ids: [], names: [], colors: [] },
+      tags: event.tag_ids
+        ? {
+          ids: event.tag_ids.split(',').map((id: string) => parseInt(id)),
+          names: event.tag_names.split(','),
+          colors: event.tag_colors.split(',')
+        }
+        : { ids: [], names: [], colors: [] },
       creator: {
         first_name: event.creator_first_name,
         last_name: event.creator_last_name
       }
     }));
 
-    // Remove the raw tag data from the response
     transformedEvents.forEach(event => {
       delete event.tag_ids;
       delete event.tag_names;
@@ -236,8 +257,8 @@ export class EventService {
       const updateData: any = {};
       if (eventData.title !== undefined) updateData.title = eventData.title;
       if (eventData.description !== undefined) updateData.description = eventData.description;
-      if (eventData.event_date !== undefined) updateData.event_date = eventData.event_date;
-      if (eventData.event_end_date !== undefined) updateData.event_end_date = eventData.event_end_date;
+      if (eventData.event_date !== undefined) updateData.event_date = toMySQLDatetime(eventData.event_date);
+      if (eventData.event_end_date !== undefined) updateData.event_end_date = toMySQLDatetime(eventData.event_end_date);
       if (eventData.location !== undefined) updateData.location = eventData.location;
       if (eventData.event_type !== undefined) updateData.event_type = eventData.event_type;
 
@@ -257,7 +278,7 @@ export class EventService {
             event_id: eventId,
             tag_id: tagId
           }));
-          
+
           await trx('event_tags').insert(eventTagData);
         }
       }
