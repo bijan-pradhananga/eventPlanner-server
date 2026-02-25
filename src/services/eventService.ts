@@ -9,6 +9,39 @@ function toMySQLDatetime(value: Date | string | undefined): string | undefined {
 }
 
 export class EventService {
+    /**
+     * Get dashboard stats for a user: total events, public, private, upcoming
+     */
+    static async getDashboardStats(userId: number) {
+      // Total events
+      const totalEventsResult = await db('events').where('user_id', userId).count('id as total').first();
+      const totalEvents = Number(totalEventsResult?.total || 0);
+
+      // Total public events
+      const publicEventsResult = await db('events').where('user_id', userId).where('event_type', 'public').count('id as total').first();
+      const totalPublicEvents = Number(publicEventsResult?.total || 0);
+
+      // Total private events
+      const privateEventsResult = await db('events').where('user_id', userId).where('event_type', 'private').count('id as total').first();
+      const totalPrivateEvents = Number(privateEventsResult?.total || 0);
+
+      // Upcoming events
+      const now = new Date();
+      const upcomingEventsResult = await db('events')
+        .where('user_id', userId)
+        .where('event_date', '>=', now)
+        .count('id as total')
+        .first();
+      const totalUpcomingEvents = Number(upcomingEventsResult?.total || 0);
+
+      return {
+        total_events: totalEvents,
+        total_public_events: totalPublicEvents,
+        total_private_events: totalPrivateEvents,
+        total_upcoming_events: totalUpcomingEvents
+      };
+    }
+    
   static async createEvent(userId: number, eventData: CreateEventRequest): Promise<Event> {
     const trx = await db.transaction();
 
