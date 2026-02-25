@@ -10,12 +10,15 @@ const router = Router();
 router.get('/', optionalAuth, validateQuery(eventQuerySchema), EventController.getEvents);
 router.get('/:id', optionalAuth, EventController.getEventById);
 
+// User-specific routes
+router.get('/my/dashboard', authenticateToken, EventController.getDashboardStats);
+router.get('/my/events', authenticateToken, validateQuery(eventQuerySchema), EventController.getMyEvents);
+
 // Protected routes
 router.post('/', authenticateToken, validate(createEventSchema), EventController.createEvent);
 router.put('/:id', authenticateToken, validate(updateEventSchema), EventController.updateEvent);
 router.delete('/:id', authenticateToken, EventController.deleteEvent);
 
-// User-specific routes
-router.get('/my/events', authenticateToken, validateQuery(eventQuerySchema), EventController.getMyEvents);
+
 
 export default router;
