@@ -4,6 +4,28 @@ import { CreateEventRequest, UpdateEventRequest, EventsQueryParams } from '../ty
 import { logger } from '../utils/logger';
 
 export class EventController {
+
+    static async getDashboardStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        if (!req.user) {
+          res.status(401).json({
+            success: false,
+            error: { message: 'Unauthorized' }
+          });
+          return;
+        }
+
+        const stats = await EventService.getDashboardStats(req.user.id);
+        res.status(200).json({
+          success: true,
+          data: stats
+        });
+      } catch (error) {
+        logger.error('Get dashboard stats failed:', error);
+        next(error);
+      }
+    }
+
   static async createEvent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
@@ -184,15 +206,8 @@ export class EventController {
         sort_order: req.query.sort_order as 'asc' | 'desc'
       };
 
-      // Filter to only show events created by the current user
-      const result = await EventService.getEvents(queryParams, req.user.id);
-      
-      // Additional filter to ensure only user's own events
-      if (result.data) {
-        result.data = result.data.filter(event => event.user_id === req.user!.id);
-        result.pagination!.total = result.data.length;
-        result.pagination!.total_pages = Math.ceil(result.data.length / queryParams.limit!);
-      }
+      // Pass creatorUserId so DB filters to only this user's events before pagination
+      const result = await EventService.getEvents(queryParams, req.user.id, req.user.id);
 
       res.status(200).json(result);
     } catch (error) {
