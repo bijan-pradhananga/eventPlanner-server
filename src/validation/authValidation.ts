@@ -69,3 +69,12 @@ export const refreshTokenSchema = Joi.object({
       'any.required': 'Refresh token is required'
     })
 });
+
+export const verifyEmailSchema = Joi.object({
+  token: Joi.string()
+    .required()
+    .messages({
+      'any.required': 'Verification token is required',
+      'string.empty': 'Verification token cannot be empty'
+    })
+});
