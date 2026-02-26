@@ -140,4 +140,78 @@ export class AuthController {
       next(error);
     }
   }
+
+  static async verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Verification token is required' }
+        });
+        return;
+      }
+
+      const result = await AuthService.verifyEmail(token);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          user: result.user,
+          message: 'Email verified successfully'
+        }
+      });
+    } catch (error) {
+      logger.error('Email verification failed:', error);
+
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid or expired') || error.message.includes('already verified')) {
+          res.status(400).json({
+            success: false,
+            error: { message: error.message }
+          });
+        } else {
+          next(error);
+        }
+      } else {
+        next(error);
+      }
+    }
+  }
+
+  static async resendVerificationEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      // Get email from authenticated user
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: { message: 'Unauthorized. Please log in first.' }
+        });
+        return;
+      }
+
+      await AuthService.resendVerificationEmail(req.user.email);
+
+      res.status(200).json({
+        success: true,
+        data: { message: 'Verification email sent successfully' }
+      });
+    } catch (error) {
+      logger.error('Resend verification email failed:', error);
+
+      if (error instanceof Error) {
+        if (error.message === 'User not found' || error.message === 'Email already verified') {
+          res.status(400).json({
+            success: false,
+            error: { message: error.message }
+          });
+        } else {
+          next(error);
+        }
+      } else {
+        next(error);
+      }
+    }
+  }
 }
