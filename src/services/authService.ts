@@ -1,8 +1,10 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { db } from '../database/connection';
 import { User, JWTPayload, CreateUserRequest, LoginRequest } from '../types';
 import { logger } from '../utils/logger';
+import { emailService } from '../utils/emailService';
 
 // Helper to get required env vars with proper error
 function getRequiredEnvVar(name: string): string {
@@ -98,8 +100,15 @@ export class AuthService {
       token: refreshToken,
       user_id: user.id,
       expires_at: refreshTokenExpiry,
-      // is_revoked defaults to false (assuming your schema has default false)
     });
+
+    // Send verification email
+    try {
+      await this.sendVerificationEmail(user.id);
+    } catch (error) {
+      logger.error('Failed to send verification email:', error);
+      // Don't fail registration if email fails
+    }
 
     logger.info(`User registered successfully: ${user.email}`);
 
@@ -206,6 +215,127 @@ export class AuthService {
 
     if (deletedCount > 0) {
       logger.info(`Cleaned up ${deletedCount} expired/revoked refresh tokens`);
+    }
+  }
+
+  /**
+   * Generate a random verification token
+   */
+  private static generateVerificationToken(): string {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  /**
+   * Send email verification token to user
+   */
+  static async sendVerificationEmail(userId: number): Promise<void> {
+    // Get user details
+    const user = await db('users').where('id', userId).first();
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Check if already verified
+    if (user.email_verified_at) {
+      throw new Error('Email already verified');
+    }
+
+    // Generate verification token
+    const token = this.generateVerificationToken();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours expiry
+
+    // Store token in database
+    await db('email_verification_tokens').insert({
+      token,
+      user_id: userId,
+      expires_at: expiresAt,
+      is_used: false,
+    });
+
+    // Send verification email
+    await emailService.sendVerificationEmail(user.email, user.first_name, token);
+    logger.info(`Verification email sent to ${user.email}`);
+  }
+
+  /**
+   * Verify email using token
+   */
+  static async verifyEmail(token: string): Promise<{ user: Omit<User, 'password_hash'> }> {
+    // Find valid token
+    const tokenRecord = await db('email_verification_tokens')
+      .where('token', token)
+      .where('is_used', false)
+      .where('expires_at', '>', new Date())
+      .first();
+
+    if (!tokenRecord) {
+      throw new Error('Invalid or expired verification token');
+    }
+
+    // Get user
+    const user = await db('users').where('id', tokenRecord.user_id).first();
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Check if already verified
+    if (user.email_verified_at) {
+      throw new Error('Email already verified');
+    }
+
+    // Mark email as verified
+    await db('users')
+      .where('id', user.id)
+      .update({ email_verified_at: new Date() });
+
+    // Mark token as used
+    await db('email_verification_tokens')
+      .where('token', token)
+      .update({ is_used: true });
+
+    logger.info(`Email verified successfully for user: ${user.email}`);
+
+    // Get updated user
+    const updatedUser = await db('users').where('id', user.id).first();
+    const { password_hash: _, ...userWithoutPassword } = updatedUser;
+    return { user: userWithoutPassword };
+  }
+
+  /**
+   * Resend verification email
+   */
+  static async resendVerificationEmail(email: string): Promise<void> {
+    const user = await db('users').where('email', email).first();
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (user.email_verified_at) {
+      throw new Error('Email already verified');
+    }
+
+    // Invalidate any existing unused tokens
+    await db('email_verification_tokens')
+      .where('user_id', user.id)
+      .where('is_used', false)
+      .update({ is_used: true });
+
+    // Send new verification email
+    await this.sendVerificationEmail(user.id);
+  }
+
+  /**
+   * Cleanup expired verification tokens
+   */
+  static async cleanupExpiredVerificationTokens(): Promise<void> {
+    const deletedCount = await db('email_verification_tokens')
+      .where('expires_at', '<', new Date())
+      .orWhere('is_used', true)
+      .del();
+
+    if (deletedCount > 0) {
+      logger.info(`Cleaned up ${deletedCount} expired/used verification tokens`);
     }
   }
 }
