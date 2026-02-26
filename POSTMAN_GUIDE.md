@@ -17,7 +17,7 @@
 
 ### 1. Select Environment
 - In top-right corner, select **Event Planner - Development** environment
-- This sets `baseUrl` to `http://localhost:5000`
+- This sets `baseUrl` to `http://localhost:3000`
 
 ### 2. Start Your Server
 ```bash
