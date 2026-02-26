@@ -10,6 +10,7 @@ import { notFoundHandler } from './middleware/notFoundHandler';
 import authRoutes from './routes/authRoutes';
 import eventRoutes from './routes/eventRoutes';
 import tagRoutes from './routes/tagRoutes';
+import rsvpRoutes from './routes/rsvpRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -46,6 +47,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/rsvps', rsvpRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);
