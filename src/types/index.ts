@@ -48,6 +48,16 @@ export interface RefreshToken {
   updated_at: Date;
 }
 
+export interface EmailVerificationToken {
+  id: number;
+  token: string;
+  user_id: number;
+  expires_at: Date;
+  is_used: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
 export interface RSVP {
   id: number;
   event_id: number;
@@ -102,6 +112,10 @@ export interface EventsQueryParams {
   sort_order?: 'asc' | 'desc';
 }
 
+export interface CreateRSVPRequest {
+  status: 'yes' | 'no' | 'maybe';
+}
+
 // JWT Payload
 export interface JWTPayload {
   id: number;
@@ -124,4 +138,16 @@ export interface ApiResponse<T = any> {
     total: number;
     total_pages: number;
   };
+}
+
+// Email Service Types
+export interface EmailVerificationTemplateData {
+  firstName: string | undefined;
+  verificationUrl: string;
+  currentYear: number;
+}
+
+export interface EmailTemplate {
+  html: string;
+  text: string;
 }
