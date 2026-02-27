@@ -78,3 +78,30 @@ export const verifyEmailSchema = Joi.object({
       'string.empty': 'Verification token cannot be empty'
     })
 });
+
+export const verify2FASchema = Joi.object({
+  tempToken: Joi.string()
+    .required()
+    .messages({
+      'any.required': 'Temporary session token is required',
+      'string.empty': 'Temporary session token cannot be empty'
+    }),
+  code: Joi.string()
+    .length(6)
+    .pattern(/^\d{6}$/)
+    .required()
+    .messages({
+      'any.required': '2FA code is required',
+      'string.length': '2FA code must be exactly 6 digits',
+      'string.pattern.base': '2FA code must contain only digits'
+    })
+});
+
+export const disable2FASchema = Joi.object({
+  password: Joi.string()
+    .required()
+    .messages({
+      'any.required': 'Password is required to disable 2FA',
+      'string.empty': 'Password cannot be empty'
+    })
+});
