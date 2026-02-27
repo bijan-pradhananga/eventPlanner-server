@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
 import { logger } from './utils/logger';
 import { testConnection } from './database/connection';
 import { errorHandler } from './middleware/errorHandler';
@@ -11,6 +12,7 @@ import authRoutes from './routes/authRoutes';
 import eventRoutes from './routes/eventRoutes';
 import tagRoutes from './routes/tagRoutes';
 import rsvpRoutes from './routes/rsvpRoutes';
+import { swaggerSpec } from './config/swagger';
 
 // Load environment variables
 dotenv.config();
@@ -48,6 +50,16 @@ app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/rsvps', rsvpRoutes);
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'Event Planner API Docs',
+  swaggerOptions: { persistAuthorization: true },
+}));
+app.get('/api-docs.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
 
 // Error handling middleware
 app.use(notFoundHandler);
