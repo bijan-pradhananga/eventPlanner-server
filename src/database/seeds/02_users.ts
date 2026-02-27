@@ -7,41 +7,50 @@ export async function seed(knex: Knex): Promise<void> {
   const saltRounds = 10;
   const password = await bcrypt.hash('password123', saltRounds);
 
-  await knex('users').insert([
-    {
-      email: 'alice.johnson@example.com',
+  const firstNames = [
+    'Alice', 'Bob', 'Carol', 'David', 'Eva',
+    'Frank', 'Grace', 'Henry', 'Ivy', 'Jack',
+    'Karen', 'Leo', 'Mia', 'Noah', 'Olivia',
+    'Paul', 'Quinn', 'Ryan', 'Sophia', 'Tom',
+    'Uma', 'Victor', 'Wendy', 'Xavier', 'Yara', 'Zane'
+  ];
+
+  const lastNames = [
+    'Johnson', 'Smith', 'White', 'Brown', 'Martinez',
+    'Taylor', 'Anderson', 'Thomas', 'Jackson', 'Harris'
+  ];
+
+  const users = [];
+
+  // ✅ Fixed Test User
+  users.push({
+    email: 'test@gmail.com',
+    password_hash: password,
+    first_name: 'Test',
+    last_name: 'User',
+    email_verified_at: new Date(),
+    created_at: new Date(),
+    updated_at: new Date(),
+  });
+
+  // ✅ Generate 50 Random Users
+  for (let i = 1; i <= 50; i++) {
+    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+
+    users.push({
+      email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@example.com`,
       password_hash: password,
-      first_name: 'Alice',
-      last_name: 'Johnson',
-      email_verified_at: new Date('2026-01-05 10:00:00')
-    },
-    {
-      email: 'bob.smith@example.com',
-      password_hash: password,
-      first_name: 'Bob',
-      last_name: 'Smith',
-      email_verified_at: new Date('2026-01-10 09:30:00')
-    },
-    {
-      email: 'carol.white@example.com',
-      password_hash: password,
-      first_name: 'Carol',
-      last_name: 'White',
-      email_verified_at: new Date('2026-01-15 14:00:00')
-    },
-    {
-      email: 'david.brown@example.com',
-      password_hash: password,
-      first_name: 'David',
-      last_name: 'Brown',
-      email_verified_at: null
-    },
-    {
-      email: 'eva.martinez@example.com',
-      password_hash: password,
-      first_name: 'Eva',
-      last_name: 'Martinez',
-      email_verified_at: new Date('2026-02-01 11:00:00')
-    }
-  ]);
+      first_name: firstName,
+      last_name: lastName,
+      email_verified_at:
+        Math.random() > 0.3
+          ? new Date(2026, 0, Math.floor(Math.random() * 28) + 1)
+          : null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+  }
+
+  await knex('users').insert(users);
 }
