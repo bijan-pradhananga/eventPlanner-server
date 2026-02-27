@@ -5,6 +5,7 @@ export interface User {
   first_name: string;
   last_name: string;
   email_verified_at?: Date;
+  two_factor_enabled: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -52,6 +53,16 @@ export interface EmailVerificationToken {
   id: number;
   token: string;
   user_id: number;
+  expires_at: Date;
+  is_used: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface TwoFactorCode {
+  id: number;
+  user_id: number;
+  code: string;
   expires_at: Date;
   is_used: boolean;
   created_at: Date;
@@ -116,10 +127,27 @@ export interface CreateRSVPRequest {
   status: 'yes' | 'no' | 'maybe';
 }
 
+export interface Verify2FARequest {
+  tempToken: string;
+  code: string;
+}
+
+export interface Disable2FARequest {
+  password: string;
+}
+
 // JWT Payload
 export interface JWTPayload {
   id: number;
   email: string;
+  iat?: number;
+  exp?: number;
+}
+
+export interface TwoFATempPayload {
+  id: number;
+  email: string;
+  purpose: '2fa';
   iat?: number;
   exp?: number;
 }
