@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { logger } from './logger';
 import { createVerificationEmailTemplate } from '../templates/verificationEmail';
+import { createTwoFactorEmailTemplate } from '../templates/twoFactorEmail';
 
 
 interface EmailOptions {
@@ -101,6 +102,21 @@ class EmailService {
     return this.sendEmail({
       to,
       subject: 'Verify Your Email Address',
+      html,
+      text,
+    });
+  }
+
+  async send2FACode(to: string, firstName: string, code: string): Promise<boolean> {
+    const { html, text } = createTwoFactorEmailTemplate({
+      firstName,
+      code,
+      currentYear: new Date().getFullYear()
+    });
+
+    return this.sendEmail({
+      to,
+      subject: 'Your Login Verification Code',
       html,
       text,
     });
