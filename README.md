@@ -18,6 +18,47 @@ REST API backend for the Event Planner application. Built with **Node.js**, **Ex
 
 ---
 
+## Engineering Decisions
+
+### TypeScript throughout
+TypeScript is used across the entire codebase (source, migrations, seeds, config) to catch type errors at compile time and make the codebase easier to navigate and refactor safely.
+
+### Knex over a full ORM
+Knex was chosen over Prisma or TypeORM to keep full control over SQL while still getting migration management, query building, and connection pooling. It avoids ORM magic that can hide N+1 queries or generate unexpected SQL.
+
+### Dual-token auth (access + refresh)
+Short-lived JWT access tokens (7 days) are paired with long-lived refresh tokens (30 days) stored in the database. This allows tokens to be revoked server-side — something stateless-only JWTs cannot do. Refresh tokens are rotated on every use to limit the damage window from token theft.
+
+### Email-based 2FA with a temporary JWT
+When 2FA is enabled, the `POST /auth/login` response returns a short-lived `tempToken` (JWT with `purpose: '2fa'`, 10-minute expiry) instead of full tokens. The client must exchange this plus the emailed 6-digit code via `POST /auth/2fa/verify`. This keeps the second factor serverless-friendly — no session state is required on the server between the two steps.
+
+### Email verification gate
+Rather than allowing all users to act immediately, create/edit/delete on events and all RSVPs require a verified email. This is enforced via the `requireEmailVerified` middleware applied at the route level, keeping the gate logic out of controllers and services.
+
+### Validation at the route boundary (Joi)
+All request bodies are validated with Joi schemas before entering controllers. Invalid requests are rejected with structured errors before any business logic or database calls run.
+
+### Structured logging (Winston)
+Winston is used with JSON output in production and colorized console output in development. This makes logs parseable by log aggregation tools (Datadog, CloudWatch, etc.) without any changes.
+
+### Swagger spec split by route group
+The OpenAPI spec is broken into `src/config/swagger/paths/` (one file per route group) and a shared `schemas.ts`. This prevents a single giant Swagger file from becoming a maintenance burden as the API grows.
+
+---
+
+## Assumptions
+
+- **Single-role system** — All authenticated users share the same permissions. There is no admin role; ownership alone gates edit/delete actions on events.
+- **One RSVP per user per event** — A user can hold exactly one RSVP status per event. Submitting a new status overwrites the previous one rather than creating a duplicate.
+- **Email uniqueness** — An email address uniquely identifies a user. Re-registering with the same email is rejected.
+- **MySQL 8+** — The project targets MySQL 8 and has not been tested against other databases (Knex supports others, but migrations may need adjustments).
+- **SMTP is optional in development** — If SMTP credentials are not set, emails (verification, 2FA codes) are logged to the console. This is intentional to make local development work without a real mail server.
+- **Frontend handles token storage** — The API returns tokens in JSON response bodies. How the frontend stores them (localStorage, httpOnly cookie, etc.) is outside the scope of this service.
+- **Public events are visible to unauthenticated users** — `GET /events` and `GET /events/:id` are accessible without authentication. Private events are visible in listings but are owned by the creator.
+- **Tags are global** — Tags are not scoped to a user; any authenticated user can create a tag and any event can use any tag.
+
+---
+
 ## Prerequisites
 
 Make sure you have the following installed:
