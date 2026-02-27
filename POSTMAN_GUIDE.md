@@ -207,7 +207,7 @@ POST /api/rsvps/events/5
 ## 🛠️ Variables
 
 ### Collection Variables
-- `baseUrl` - API base URL (default: `http://localhost:5000`)
+- `baseUrl` - API base URL (default: `http://localhost:3000`)
 - `accessToken` - JWT access token (auto-updated on login)
 - `refreshToken` - JWT refresh token (auto-updated on login)
 
