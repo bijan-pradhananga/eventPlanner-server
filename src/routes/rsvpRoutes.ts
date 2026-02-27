@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { RSVPController } from '../controllers/rsvpController';
 import { validate } from '../middleware/validation';
-import { authenticateToken, optionalAuth } from '../middleware/auth';
+import { authenticateToken, optionalAuth, requireEmailVerified } from '../middleware/auth';
 import { rsvpSchema } from '../validation/rsvpValidation';
 
 const router = Router();
@@ -15,10 +15,10 @@ router.get('/events/:eventId', optionalAuth, RSVPController.getEventRSVPs);
 // Get user's RSVP for a specific event
 router.get('/events/:eventId/my-rsvp', authenticateToken, RSVPController.getUserRSVP);
 
-// Create or update RSVP for an event
-router.post('/events/:eventId', authenticateToken, validate(rsvpSchema), RSVPController.upsertRSVP);
+// Create or update RSVP for an event (requires verified email)
+router.post('/events/:eventId', authenticateToken, requireEmailVerified, validate(rsvpSchema), RSVPController.upsertRSVP);
 
-// Delete RSVP (cancel)
-router.delete('/events/:eventId', authenticateToken, RSVPController.deleteRSVP);
+// Delete RSVP (requires verified email)
+router.delete('/events/:eventId', authenticateToken, requireEmailVerified, RSVPController.deleteRSVP);
 
 export default router;
