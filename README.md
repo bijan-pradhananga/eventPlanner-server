@@ -199,6 +199,19 @@ Base URL: `http://localhost:3000/api`
 GET http://localhost:3000/health
 ```
 
+### API Documentation (Swagger UI)
+
+```
+GET http://localhost:3000/api-docs
+```
+
+Interactive docs with all endpoints, request/response schemas, and built-in authorization. Click **Authorize** and paste your `accessToken` to send authenticated requests directly from the browser.
+
+Raw OpenAPI spec available at:
+```
+GET http://localhost:3000/api-docs.json
+```
+
 ---
 
 ## Auth Flow
@@ -274,19 +287,28 @@ The Login request automatically saves tokens to collection variables. For 2FA lo
 
 ```
 src/
-├── config/           # Database config (Knex)
-├── controllers/      # Route handlers
+├── config/
+│   ├── database.ts          # Knex connection config
+│   └── swagger/             # OpenAPI / Swagger spec (split by group)
+│       ├── index.ts         # Merges everything, exports swaggerSpec
+│       ├── schemas.ts       # Reusable component schemas
+│       └── paths/
+│           ├── auth.ts      # /auth/* + /auth/2fa/* paths
+│           ├── events.ts    # /events/* paths
+│           ├── tags.ts      # /tags/* paths
+│           └── rsvps.ts     # /rsvps/* paths
+├── controllers/             # Route handlers
 ├── database/
 │   ├── connection.ts
-│   ├── migrations/   # Knex migration files
-│   └── seeds/        # Seed data
-├── middleware/       # Auth, validation, error handling
-├── routes/           # Express routers
-├── services/         # Business logic
-├── templates/        # HTML email templates
-├── types/            # TypeScript interfaces
-├── utils/            # Logger, email service, sanitization
-└── validation/       # Joi schemas
+│   ├── migrations/          # Knex migration files
+│   └── seeds/               # Seed data
+├── middleware/              # Auth, validation, error handling
+├── routes/                  # Express routers
+├── services/                # Business logic
+├── templates/               # HTML email templates
+├── types/                   # TypeScript interfaces
+├── utils/                   # Logger, email service, sanitization
+└── validation/              # Joi schemas
 ```
 
 ---
