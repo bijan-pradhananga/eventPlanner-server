@@ -4,6 +4,30 @@ REST API backend for the Event Planner application. Built with **Node.js**, **Ex
 
 ---
 
+## Table of Contents
+
+- [Features](#features)
+- [Engineering Decisions](#engineering-decisions)
+- [Assumptions](#assumptions)
+- [Prerequisites](#prerequisites)
+- [1. Clone the Repository](#1-clone-the-repository)
+- [2. Install Dependencies](#2-install-dependencies)
+- [3. Create the Database](#3-create-the-database)
+- [4. Configure Environment Variables](#4-configure-environment-variables)
+- [5. Run Migrations](#5-run-migrations)
+- [6. Seed the Database](#6-seed-the-database)
+- [7. Start the Development Server](#7-start-the-development-server)
+- [Available Scripts](#available-scripts)
+- [API Overview](#api-overview)
+- [Auth Flow](#auth-flow)
+- [Email Verification](#email-verification)
+- [Two-Factor Authentication (2FA)](#two-factor-authentication-2fa)
+- [Postman Collection](#postman-collection)
+- [Project Structure](#project-structure)
+- [Common Issues](#common-issues)
+
+---
+
 ## Features
 
 - JWT authentication with refresh token rotation
