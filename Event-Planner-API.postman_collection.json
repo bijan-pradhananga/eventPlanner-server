@@ -50,9 +50,15 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
-                  "if (jsonData.success && jsonData.data.accessToken) {",
-                  "    pm.collectionVariables.set('accessToken', jsonData.data.accessToken);",
-                  "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "if (jsonData.success) {",
+                  "    if (jsonData.data.requires2FA) {",
+                  "        pm.collectionVariables.set('twoFATempToken', jsonData.data.tempToken);",
+                  "        console.log('2FA required — tempToken saved. Use Verify 2FA Code request.');",
+                  "    } else if (jsonData.data.accessToken) {",
+                  "        pm.collectionVariables.set('accessToken', jsonData.data.accessToken);",
+                  "        pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "        console.log('Login successful — tokens saved.');",
+                  "    }",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -209,6 +215,103 @@
               "path": ["api", "auth", "resend-verification"]
             },
             "description": "Resend email verification link to authenticated user"
+          },
+          "response": []
+        },
+        {
+          "name": "2FA - Verify Code (complete login)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', jsonData.data.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "    pm.collectionVariables.set('twoFATempToken', '');",
+                  "    console.log('2FA verified — tokens saved.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tempToken\": \"{{twoFATempToken}}\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/2fa/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "2fa", "verify"]
+            },
+            "description": "Step 2 of login when 2FA is enabled. Send the 6-digit code from email along with the tempToken received from the Login response."
+          },
+          "response": []
+        },
+        {
+          "name": "2FA - Enable",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/2fa/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "2fa", "enable"]
+            },
+            "description": "Enable two-factor authentication for the authenticated user. After enabling, every login will require a 6-digit code sent to the user's email."
+          },
+          "response": []
+        },
+        {
+          "name": "2FA - Disable",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/2fa/disable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "2fa", "disable"]
+            },
+            "description": "Disable two-factor authentication. Requires current password as confirmation."
           },
           "response": []
         }
@@ -791,6 +894,11 @@
     },
     {
       "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "twoFATempToken",
       "value": "",
       "type": "string"
     }
